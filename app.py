@@ -85,7 +85,8 @@ def stations():
 @app.route("/api/v1.0/tobs")
 def tobs():
     session = Session(engine)
-    tobs_query = session.query(Measurement.date, Measurement.tobs).all()
+    tobs_query = session.query(Measurement.date, Measurement.tobs).\
+        filter(Measurement.date >= year_earlier).all()
     session.close()
 
     tobs_list = list(np.ravel(tobs_query))
