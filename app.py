@@ -26,9 +26,10 @@ Station = Base.classes.station
 
 # Calculate the date 1 year ago from the last data point in the database
 session = Session(engine)
-latest = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
-latest = dt.datetime.strptime(latest[0], '%Y-%m-%d')
-year_earlier = latest - dt.timedelta(days=366)
+latest = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
+parsed_date = (latest).split('-')
+minus_year = int(parsed_date[0]) - 1
+year_earlier = f'{minus_year}-{parsed_date[1]}-{parsed_date[2]}'
 session.close()
 
 #################################################
@@ -49,8 +50,8 @@ def home():
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"/api/v1.0/start<br/>"
-        f"/api/v1.0/start/end"
+        f"/api/v1.0/start_date<br/>"
+        f"/api/v1.0/start_date/end_date"
     )
 
 @app.route("/api/v1.0/precipitation")
@@ -59,6 +60,7 @@ def precipitation():
         Return the JSON representation of your dictionary."""
 
     #doesn't really specify what query to convert
+    #queried last year of data for dates and prcp
     
     session = Session(engine)
     prcp_query = session.query(Measurement.date, Measurement.prcp).\
@@ -72,6 +74,7 @@ def precipitation():
 @app.route("/api/v1.0/stations")
 def stations():
     """Return a JSON list of stations from the dataset."""
+
     session = Session(engine)
     station_query = session.query(Station.station).all()
     session.close()
@@ -84,6 +87,9 @@ def stations():
 
 @app.route("/api/v1.0/tobs")
 def tobs():
+    """query for the dates and temperature observations from a year from the last data point.
+    Return a JSON list of Temperature Observations (tobs) for the previous year."""
+
     session = Session(engine)
     tobs_query = session.query(Measurement.date, Measurement.tobs).\
         filter(Measurement.date >= year_earlier).all()
@@ -95,6 +101,11 @@ def tobs():
 
 @app.route("/api/v1.0/<start>")
 def t_start(start):
+    """Return a JSON list of the minimum temperature, the average temperature, 
+    and the max temperature for a given start date.
+    When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater
+    than and equal to the start date."""
+
     session = Session(engine)
     sel = [Measurement.date, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)]
     t_start_query = session.query(*sel).filter(Measurement.date >= start).all()
@@ -104,6 +115,11 @@ def t_start(start):
 
 @app.route("/api/v1.0/<start>/<end>")
 def t_start_end(start, end):
+    """Return a JSON list of the minimum temperature, the average temperature,
+    and the max temperature for a given start-end date range.
+    When given the start and the end date, calculate the TMIN, TAVG, and TMAX 
+    for dates between the start and end date inclusive."""
+
     session = Session(engine)
     sel = [Measurement.date, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)]
     t_start_end_query = session.query(*sel).filter(Measurement.date.between(start, end)).all()
